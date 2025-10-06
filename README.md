@@ -1026,42 +1026,6 @@ async def test_scraping():
 
 ---
 
-## 📄 License
-
-[Your License Here]
-
----
-
-## 🤝 Contributing
-
-Contributions welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new features
-4. Ensure 90%+ coverage
-5. Submit pull request
-
----
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues](your-repo-url/issues)
-- **Documentation**: [Full Docs](your-docs-url)
-- **Email**: your-email@example.com
-
----
-
-## 🎯 Roadmap
-
-- [ ] WebSocket support for real-time progress
-- [ ] GraphQL API
-- [ ] Multi-language support for UI
-- [ ] Built-in proxy provider integration
-- [ ] Advanced analytics dashboard
-- [ ] Kubernetes deployment manifests
-
----
 
 **Built with ❤️ using FastAPI, Playwright, and Python**
 
