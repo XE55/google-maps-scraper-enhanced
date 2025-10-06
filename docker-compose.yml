@@ -1,25 +1,52 @@
-
-version: '3.8'
-
 services:
-  scraper-api:
-    build: . # Build the image from the Dockerfile in the current directory
-    container_name: gmaps_scraper_api_service # Optional: specify a container name
+  postgres:
+    image: postgres:16
+    container_name: gmaps_scraper_postgres
+    environment:
+      POSTGRES_DB: gmaps_scraper
+      POSTGRES_USER: scraper_user
+      POSTGRES_PASSWORD: scraper_pass
     ports:
-      - "8001:8001" # Map host port 8001 to container port 8001
-    restart: unless-stopped # Restart policy
+      - "5433:5432"
     volumes:
-      - .:/app # Mount current directory to /app in container
-    working_dir: /app # Set working directory to mounted volume
-    networks:
-      - shark
-    # Optional: Add environment variables if needed for configuration
-    # environment:
-    #   - HEADLESS_MODE=true
-    cpu_shares: 1024 # Add cpu_shares here if not using Swarm mode
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scraper_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-# Create the external network first with:
-# docker network create shark
-networks:
-  shark:
-    external: true
+  redis:
+    image: redis:7-alpine
+    container_name: gmaps_scraper_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      target: development
+    container_name: gmaps_scraper_api
+    ports:
+      - "8001:8001"
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      - DATABASE_URL=postgresql://scraper_user:scraper_pass@postgres:5432/gmaps_scraper
+      - REDIS_URL=redis://redis:6379/0
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn gmaps_scraper_server.main_api:app --host 0.0.0.0 --port 8001 --reload
+
+volumes:
+  postgres_data:

@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: gmaps_scraper_server
+Version: 0.1
+License-File: LICENSE
+Requires-Dist: playwright
+Requires-Dist: fastapi
+Requires-Dist: uvicorn[standard]
+Dynamic: license-file
+Dynamic: requires-dist

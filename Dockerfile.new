@@ -1,0 +1,65 @@
+# Multi-stage Dockerfile for development and testing
+FROM python:3.10-slim as base
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libnss3 libnspr4 libdbus-1-3 libatk1.0-0 libatk-bridge2.0-0 \
+    libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
+    libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2 \
+    curl git \
+    && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better layer caching
+COPY requirements.txt requirements-dev.txt setup.py ./
+
+# ========================================
+# Development stage (with hot reload & testing tools)
+# ========================================
+FROM base as development
+
+RUN pip install --no-cache-dir -r requirements.txt -r requirements-dev.txt
+RUN pip install -e . --no-deps
+RUN playwright install --with-deps chromium
+
+# Copy application code
+COPY . .
+
+EXPOSE 8001 9090
+
+# Hot reload for development
+CMD ["uvicorn", "gmaps_scraper_server.main_api:app", "--host", "0.0.0.0", "--port", "8001", "--reload", "--log-level", "debug"]
+
+# ========================================
+# Testing stage (runs pytest)
+# ========================================
+FROM development as testing
+
+WORKDIR /app
+
+# Run tests with coverage
+CMD ["pytest", "tests/", "-v", "--cov=gmaps_scraper_server", "--cov-report=html", "--cov-report=term-missing", "--cov-report=xml"]
+
+# ========================================
+# Production stage (optimized, no dev tools)
+# ========================================
+FROM base as production
+
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -e . --no-deps
+RUN playwright install --with-deps chromium
+
+# Copy only necessary files
+COPY gmaps_scraper_server/ ./gmaps_scraper_server/
+COPY setup.py README.md LICENSE ./
+
+EXPOSE 8001 9090
+
+# Use production WSGI server
+CMD ["uvicorn", "gmaps_scraper_server.main_api:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "4"]

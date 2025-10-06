@@ -1,0 +1,153 @@
+# Docker Compose for Development Environment
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: gmaps_postgres_dev
+    environment:
+      POSTGRES_DB: gmaps_scraper
+      POSTGRES_USER: gmaps_user
+      POSTGRES_PASSWORD: dev_password_123
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"  # Use 5433 to avoid conflict with local PostgreSQL
+    networks:
+      - gmaps_dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gmaps_user"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Redis for caching and Celery
+  redis:
+    image: redis:7-alpine
+    container_name: gmaps_redis_dev
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_dev_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - gmaps_dev
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Development API Server (hot reload enabled)
+  api-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.new
+      target: development
+    container_name: gmaps_api_dev
+    ports:
+      - "8001:8001"
+      - "9090:9090"
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - DATABASE_URL=postgresql+asyncpg://gmaps_user:dev_password_123@postgres:5432/gmaps_scraper
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - API_KEY_SALT=dev-salt-change-in-production
+      - ADMIN_PASSWORD=admin123
+      - LOG_LEVEL=DEBUG
+    volumes:
+      # Mount source code for hot reload
+      - ./gmaps_scraper_server:/app/gmaps_scraper_server
+      - ./tests:/app/tests
+      - ./.env:/app/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - gmaps_dev
+    stdin_open: true
+    tty: true
+
+  # Test Runner (runs pytest)
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.new
+      target: testing
+    container_name: gmaps_test_runner
+    environment:
+      - ENVIRONMENT=test
+      - DATABASE_URL=postgresql+asyncpg://gmaps_user:dev_password_123@postgres:5432/gmaps_scraper_test
+      - REDIS_URL=redis://redis:6379/2
+      - SECRET_KEY=test-secret-key
+      - API_KEY_SALT=test-salt
+    volumes:
+      - ./gmaps_scraper_server:/app/gmaps_scraper_server
+      - ./tests:/app/tests
+      - ./htmlcov:/app/htmlcov
+      - ./coverage.xml:/app/coverage.xml
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - gmaps_dev
+    profiles:
+      - test
+
+  # Celery Worker (Development)
+  worker-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.new
+      target: development
+    container_name: gmaps_worker_dev
+    command: celery -A gmaps_scraper_server.celery_app worker --loglevel=info --concurrency=2
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://gmaps_user:dev_password_123@postgres:5432/gmaps_scraper
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+    volumes:
+      - ./gmaps_scraper_server:/app/gmaps_scraper_server
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - gmaps_dev
+    profiles:
+      - worker
+
+  # Celery Beat (Scheduled Tasks)
+  beat-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.new
+      target: development
+    container_name: gmaps_beat_dev
+    command: celery -A gmaps_scraper_server.celery_app beat --loglevel=info
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/1
+    volumes:
+      - ./gmaps_scraper_server:/app/gmaps_scraper_server
+    depends_on:
+      - redis
+    networks:
+      - gmaps_dev
+    profiles:
+      - worker
+
+volumes:
+  postgres_dev_data:
+  redis_dev_data:
+
+networks:
+  gmaps_dev:
+    driver: bridge
