@@ -1,3 +1,15 @@
+## ⚠️ Disclaimer
+
+This project is still **in development** and has **not been tested in real-world scenarios**.  
+It’s a **side project** I’m working on to integrate into my main lead workflows.
+
+The code and documentation were **heavily assisted by Claude Sonnet 4.5**, and I haven’t yet fully reviewed or validated the implementation.  
+Please **use it with caution**, and **treat everything stated in this README as per Claude’s output**, not as a verified final version.
+
+I am **not responsible for how this project is used**.  
+It must **not be used to violate any Terms of Service, laws, or ethical guidelines**.
+
+
 # Google Maps Scraper - Enhanced Edition 🗺️
 
 A production-ready Google Maps scraper with FastAPI, built for reliability and ease of use. Perfect for extracting business information from Google Maps with async job processing and n8n integration.
