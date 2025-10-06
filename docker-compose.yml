@@ -4,14 +4,14 @@ services:
     container_name: gmaps_scraper_postgres
     environment:
       POSTGRES_DB: gmaps_scraper
-      POSTGRES_USER: scraper_user
-      POSTGRES_PASSWORD: scraper_pass
+      POSTGRES_USER: gmaps_user
+      POSTGRES_PASSWORD: gmaps_password
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U scraper_user"]
+      test: ["CMD-SHELL", "pg_isready -U gmaps_user"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -37,10 +37,8 @@ services:
     volumes:
       - .:/app
     working_dir: /app
-    environment:
-      - DATABASE_URL=postgresql://scraper_user:scraper_pass@postgres:5432/gmaps_scraper
-      - REDIS_URL=redis://redis:6379/0
-      - PYTHONUNBUFFERED=1
+    env_file:
+      - .env
     depends_on:
       postgres:
         condition: service_healthy

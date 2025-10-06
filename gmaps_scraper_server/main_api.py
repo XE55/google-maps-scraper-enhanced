@@ -47,9 +47,9 @@ if HAS_CONFIG:
     setup_logging(
         log_level=settings.log_level,
         log_format=settings.log_format,
-        log_file=settings.log_file if settings.log_file_enabled else None,
-        log_max_bytes=settings.log_max_bytes,
-        log_backup_count=settings.log_backup_count,
+        log_file=settings.log_file_path if settings.log_file_enabled else None,
+        log_max_bytes=settings.log_file_max_size,
+        log_backup_count=settings.log_file_backup_count,
     )
 
 # Context variable for request ID

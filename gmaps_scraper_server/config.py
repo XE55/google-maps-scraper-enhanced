@@ -4,12 +4,20 @@ Loads and validates all configuration from environment variables.
 """
 import os
 from typing import List, Optional
-from pydantic import Field, validator
+from pydantic import Field, field_validator, ValidationInfo, ConfigDict
 from pydantic_settings import BaseSettings
+
 
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
+    
+    model_config = ConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore"  # Ignore extra fields from .env
+    )
     
     # Application
     app_name: str = Field(default="google-maps-scraper", env="APP_NAME")
@@ -130,51 +138,57 @@ class Settings(BaseSettings):
     )
     google_maps_default_lang: str = Field(default="en", env="GOOGLE_MAPS_DEFAULT_LANG")
     
-    @validator("secret_key", "api_key_salt", "admin_password")
-    def validate_secrets(cls, v, field):
+    @field_validator("secret_key", "api_key_salt", "admin_password")
+    @classmethod
+    def validate_secrets(cls, v: str, info: ValidationInfo) -> str:
         """Ensure security-critical values are not defaults."""
         if not v or v in ["CHANGE_ME", "changeme", "password", "secret"]:
             raise ValueError(
-                f"{field.name} must be set to a secure value. "
+                f"{info.field_name} must be set to a secure value. "
                 f"Generate with: python -c \"import secrets; print(secrets.token_hex(32))\""
             )
         if len(v) < 32:
-            raise ValueError(f"{field.name} must be at least 32 characters long")
+            raise ValueError(f"{info.field_name} must be at least 32 characters long")
         return v
     
-    @validator("environment")
-    def validate_environment(cls, v):
+    @field_validator("environment")
+    @classmethod
+    def validate_environment(cls, v: str) -> str:
         """Validate environment value."""
         allowed = ["development", "staging", "production"]
         if v not in allowed:
             raise ValueError(f"environment must be one of: {allowed}")
         return v
     
-    @validator("log_level")
-    def validate_log_level(cls, v):
+    @field_validator("log_level")
+    @classmethod
+    def validate_log_level(cls, v: str) -> str:
         """Validate log level."""
         allowed = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
         if v.upper() not in allowed:
             raise ValueError(f"log_level must be one of: {allowed}")
         return v.upper()
     
-    @validator("log_format")
-    def validate_log_format(cls, v):
+    @field_validator("log_format")
+    @classmethod
+    def validate_log_format(cls, v: str) -> str:
         """Validate log format."""
         allowed = ["json", "console"]
         if v not in allowed:
             raise ValueError(f"log_format must be one of: {allowed}")
         return v
     
-    @validator("proxy_rotation_strategy")
-    def validate_proxy_strategy(cls, v):
+    @field_validator("proxy_rotation_strategy")
+    @classmethod
+    def validate_proxy_strategy(cls, v: str) -> str:
         """Validate proxy rotation strategy."""
         allowed = ["round-robin", "random", "least-used", "performance-based"]
         if v not in allowed:
             raise ValueError(f"proxy_rotation_strategy must be one of: {allowed}")
         return v
     
-    @validator("cors_origins", pre=True)
+    @field_validator("cors_origins", mode="before")
+    @classmethod
     def parse_cors_origins(cls, v):
         """Parse CORS origins from JSON string if needed."""
         if isinstance(v, str):
@@ -184,11 +198,6 @@ class Settings(BaseSettings):
             except json.JSONDecodeError:
                 return v.split(",")
         return v
-    
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
 
 
 def validate_environment():

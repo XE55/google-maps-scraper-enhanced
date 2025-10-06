@@ -10,10 +10,11 @@ from alembic import context
 
 # Import your application's models
 try:
-    from gmaps_scraper_server.models import Base
+    from gmaps_scraper_server.db_models import Base
     from gmaps_scraper_server.config import settings
     HAS_CONFIG = True
-except ImportError:
+except ImportError as e:
+    print(f"WARNING: Could not import models or config: {e}")
     HAS_CONFIG = False
     Base = None
     settings = None
@@ -68,8 +69,13 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    # Get config section and override with database URL from settings
+    configuration = config.get_section(config.config_ini_section)
+    if HAS_CONFIG and settings:
+        configuration["sqlalchemy.url"] = settings.database_url
+    
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section),
+        configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

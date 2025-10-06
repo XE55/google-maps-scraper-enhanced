@@ -157,7 +157,7 @@ async def check_redis() -> Dict[str, Any]:
             "message": "Redis check disabled (missing dependencies or not configured)"
         }
     
-    if not settings.redis_enabled:
+    if not settings.cache_enabled:
         return {
             "status": "disabled",
             "message": "Redis is disabled in configuration"
@@ -314,7 +314,7 @@ async def get_version():
             "environment": settings.environment,
             "debug": settings.debug,
             "features": {
-                "redis_caching": settings.redis_enabled,
+                "redis_caching": settings.cache_enabled,
                 "rate_limiting": settings.rate_limit_enabled,
                 "email_verification": settings.email_verification_enabled,
                 "proxy_rotation": bool(settings.proxy_list),
